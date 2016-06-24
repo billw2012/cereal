@@ -51,6 +51,29 @@ namespace cereal
   } // namespace util
 } // namespace cereal
 #else // clang or gcc
+
+#if !defined(ENVIRONMENT64) && !defined(ENVIRONMENT32)
+#	if defined(__ARM_ARCH_ISA_A64) || defined(__x86_64__) || defined(__ppc64__)
+#		define ENVIRONMENT64
+#	else
+#		define ENVIRONMENT32
+#	endif
+#endif
+
+#if !defined(TARGETING_ARM) && !defined(TARGETING_X86)
+#	if defined(__arm__) || defined(__thumb__) || defined(__aarch64__) || defined(__ARM_ARCH) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7S__)
+#		define TARGETING_ARM
+#	elif defined(__i386__) || defined(__ia64__) || defined(__amd64__)
+#		define TARGETING_X86
+#	else
+#		warning "Couldn't determine architecture"
+#	endif
+#endif
+
+#if defined(TARGETING_X86) || (defined(TARGETING_ARM) && defined(ENVIRONMENT64))
+#	define CEREAL_NO_DEMANGLE
+#endif
+
 #include <cxxabi.h>
 #include <cstdlib>
 namespace cereal
@@ -61,16 +84,20 @@ namespace cereal
     /*! @internal */
     inline std::string demangle(std::string mangledName)
     {
-      int status = 0;
-      char *demangledName = nullptr;
-      std::size_t len;
+#if !defined(CEREAL_NO_DEMANGLE)
+		int status = 0;
+		char *demangledName = nullptr;
+		std::size_t len;
 
-      demangledName = abi::__cxa_demangle(mangledName.c_str(), 0, &len, &status);
+		demangledName = abi::__cxa_demangle(mangledName.c_str(), 0, &len, &status);
 
-      std::string retName(demangledName);
-      free(demangledName);
+		std::string retName(demangledName);
+		free(demangledName);
 
-      return retName;
+		return retName;
+#else
+		return mangledName;
+#endif
     }
 
     //! Gets the demangled name of a type
